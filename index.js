@@ -10,11 +10,12 @@ const DataBaseUrl = process.env.DATABASE_URL;
 const JobPost = require("./Models/Job");
 const newUser = require("./Models/User");
 const JobUser = require("./Models/JobUsers");
-const bcrypt = require('bcryptjs');
+const bcrypt = require("bcrypt");
 const cors = require("cors");
 const User = require("./Models/User");
 const { ObjectId } = require("mongodb");
 const JobUsers = require("./Models/JobUsers");
+const { v4: RandPass } = require("uuid");
 
 app.use(express.json({ limit: "200mb" }));
 app.use(cors());
@@ -38,6 +39,18 @@ app.get("/all/jobs", async (req, res) => {
     });
   } catch (err) {
     console.log("err get all jobs " + err);
+    res.json({ err }).status(500);
+  }
+});
+
+//get all jobs
+app.get("/all/users", async (req, res) => {
+  try {
+    await User.find().then((response) => {
+      res.json({ response });
+    });
+  } catch (err) {
+    console.log("err get all users " + err);
     res.json({ err }).status(500);
   }
 });
@@ -123,7 +136,10 @@ app.post("/add/user", async (req, res) => {
         user._id = _id;
         user.name = name;
         user.email = email;
-        user.password = bcrypt.hashSync(password, 10);
+        user.password = req.body.google
+          ? RandPass()
+          : bcrypt.hashSync(password, 10);
+
         user.city = city;
         user.isEmployee = isEmployee;
         user.date = Date.now();
@@ -147,12 +163,16 @@ app.post("/add/user", async (req, res) => {
 app.post("/login", (req, res) => {
   try {
     const { email, password } = req.body;
-
+    console.log(req.body);
     newUser.findOne({ email }).then((response) => {
       if (response) {
-        if (bcrypt.compareSync(password, response.password)) {
+        if (req.body.google) {
           res.json({ msg: "", pass: true, user: response });
-        } else res.send({ msg: "password err", pass: false });
+        } else {
+          if (bcrypt.compareSync(password, response.password)) {
+            res.json({ msg: "", pass: true, user: response });
+          } else res.send({ msg: "password err", pass: false });
+        }
       } else {
         res.send({ msg: "email or password err", pass: false });
       }
@@ -508,6 +528,24 @@ app.post("/get/messages", async (req, res) => {
 //         res.json({err}).status(500)
 //     }
 // })
+
+// admin methods
+
+app.post("/block/user", async (req, res) => {
+  const { userId, adminCode } = req.body;
+  if (adminCode == process.env.ADMIN_CODE) {
+    await User.findOne({ _id: userId }).then(async (response) => {
+      if (response) {
+        response.blocked = !response.blocked;
+        await response.save();
+        res.json({ msg: "yser are blocked" });
+      }
+    });
+  } else {
+    console.log("adminCode wrong" + err);
+    res.json({ err }).status(400);
+  }
+});
 
 function removeElement(arr, value) {
   while (true) {
