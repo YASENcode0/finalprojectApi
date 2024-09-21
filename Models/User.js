@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const newUser = mongoose.Schema({
   _id: String,
+  blocked:{
+    type: Boolean,
+    default: false,
+  } ,
   name: String,
   email: String,
   password: String,
